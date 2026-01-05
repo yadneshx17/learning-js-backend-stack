@@ -2,6 +2,7 @@ import express from "express";
 import dotenv  from "dotenv";
 import authRoutes from "./routes/auth.routes.js";
 import classRoutes from "./routes/class.routes.js";
+import attendanceRoutes from "./routes/attendance.routes.js"
 
 const app = express();
 
@@ -12,6 +13,7 @@ app.use(express.json());
 
 app.use("/auth", authRoutes);
 app.use("/class", classRoutes);
+app.use("/attendance", attendanceRoutes);
 
 dotenv.config();
 
