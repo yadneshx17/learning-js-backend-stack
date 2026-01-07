@@ -33,7 +33,7 @@ export const initWebSocket = (server) => {
 
       // verify JWT
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      
+
       // 3. attach user info to socket
       ws.user = {
         userId: decoded.userId,
@@ -46,7 +46,7 @@ export const initWebSocket = (server) => {
       ws.send(
         JSON.stringify({
           event: "CONNECTED",
-          data: { message: "WebSocket authenticated" },
+          data: { message: "WebSocket authenticated", role: decoded.role },
         }),
       );
 
@@ -72,7 +72,7 @@ export const initWebSocket = (server) => {
             ws.send(
               JSON.stringify({
                 event: "PONG",
-                data: "alive",
+                data: "Server is Alive",
               }),
             );
             break;
@@ -88,8 +88,7 @@ export const initWebSocket = (server) => {
               );
               break;
             }
-            
-            
+
             const activeSession = getActiveSession();
             // session must exist
             if (!activeSession) {
@@ -112,14 +111,94 @@ export const initWebSocket = (server) => {
                 }),
               );
             }
-            
+
             activeSession.attendance[studentId] = status;
-            
+
             broadcast({
               event: "ATTENDANCE_MARKED",
               data: { studentId, status },
             });
-            
+
+            break;
+
+          case "TODAY_SUMMARY":
+            if (ws.user.role !== "teacher") {
+              ws.send(
+                JSON.stringify({
+                  event: "ERROR",
+                  data: {
+                    message: "Forbidden, teacher event only",
+                  },
+                }),
+              );
+              break;
+            }
+
+            activeSession = getActiveSession();
+            if (!activeSession) {
+              ws.send(
+                JSON.stringify({
+                  event: "ERROR",
+                  data: {
+                    message: "No active attendance session",
+                  },
+                }),
+              );
+              break;
+            }
+
+            const values = Object.values(activeSession.attendance);
+
+            const present = values.filter((v) => v === "present").length();
+            const absent = values.filter((v) => v === "absent").length();
+
+            broadcast({
+              event: "TODAY_SUMMARY",
+              data: {
+                present,
+                absent,
+                total: present + absent,
+              },
+            });
+
+            break;
+
+          case "MY_ATTENDANCE":
+            if (ws.user.role !== "student") {
+              ws.send(
+                JSON.stringify({
+                  event: "ERROR",
+                  data: {
+                    message: "Forbidden, teacher event only",
+                  },
+                }),
+              );
+              break;
+            }
+
+            const activeSessions = getActiveSession();
+            if (!activeSessions) {
+              ws.send(
+                JSON.stringify({
+                  event: "ERROR",
+                  data: {
+                    message: "No active attendance session",
+                  },
+                }),
+              );
+              break;
+            }
+
+            const statuss =
+              activeSessions.attendance[ws.user.userId] ?? "not yet uploaded";
+
+            ws.send(
+              JSON.stringify({
+                event: "MY_ATTENDANCE",
+                data: { statuss },
+              }),
+            );
+
             break;
 
           default:
